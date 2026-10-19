@@ -8,6 +8,7 @@ import type ExchangeChain from '../exchanges/ExchangeChain';
 import type { TBuildTransactionsOptions } from '../types';
 import type {
   TBuildTransactionsBaseOptions,
+  TDestinationInfo,
   TExchangeInfo,
   TOriginInfo,
   TTransformedOptions,
@@ -16,6 +17,7 @@ import { getSwapFee } from './fees';
 import { getMinTransferableAmount } from './getMinTransferableAmount';
 import {
   createToExchangeBuilder,
+  getFromExchangeOriginFee,
   prepareTransformedOptions,
   validateTransferOptions,
 } from './utils';
@@ -194,5 +196,44 @@ describe('getMinTransferableAmount', () => {
 
     expect(getSwapFee).toHaveBeenCalledTimes(1);
     expect(result).toBe(31n);
+  });
+
+  it('also adds exchange -> destination fee when transferring to another chain', async () => {
+    const destination = { chain: 'Acala', address: 'dest' } as TDestinationInfo;
+    const options = createTransformedOptions({
+      origin: undefined,
+      destination,
+      exchange: createExchangeInfo('HDX'),
+    });
+    vi.mocked(prepareTransformedOptions).mockResolvedValue({
+      dex: createExchangeChainStub(),
+      options,
+    });
+
+    vi.mocked(getExistentialDeposit).mockReturnValue(10n);
+    vi.mocked(getNativeAssetSymbol).mockReturnValue('HDX');
+    vi.mocked(getSwapFee).mockResolvedValue({
+      result: { fee: 20n, feeType: 'dryRun', asset: createAssetInfo('HDX') },
+      amountOut: 500n,
+    });
+    vi.mocked(getFromExchangeOriginFee).mockResolvedValue({
+      fee: 7n,
+      feeType: 'dryRun',
+      asset: createAssetInfo('HDX'),
+    });
+
+    const result = await getMinTransferableAmount({ ...createOptions(), api: mockApi });
+
+    expect(getFromExchangeOriginFee).toHaveBeenCalledWith(
+      {
+        exchange: options.exchange,
+        destination,
+        amount: 500n,
+        sender: 'sender',
+        api: options.api,
+      },
+      false,
+    );
+    expect(result).toBe(38n);
   });
 });

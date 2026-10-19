@@ -7,6 +7,7 @@ import type { TTransformedOptions } from '../types/TRouter';
 import { getSwapFee } from './fees';
 import {
   createToExchangeBuilder,
+  getFromExchangeOriginFee,
   prepareTransformedOptions,
   validateTransferOptions,
 } from './utils';
@@ -26,7 +27,7 @@ const computeLocalTransferableAmount = async <
     TCustomChain
   >,
 ): Promise<bigint> => {
-  const { exchange, sender } = options;
+  const { api, exchange, destination, sender } = options;
 
   const currency: TCurrencyCore = {
     location: exchange.assetFrom.location,
@@ -44,12 +45,23 @@ const computeLocalTransferableAmount = async <
   let swapFee = 0n;
   const nativeSymbol = getNativeAssetSymbol(exchange.chain);
 
+  let toDestFee = 0n;
+
   if (exchange.assetFrom.symbol === nativeSymbol) {
-    const { result } = await getSwapFee(dex, options);
+    const { result, amountOut } = await getSwapFee(dex, options);
     swapFee = result.fee ?? 0n;
+
+    // The swap is batched with the exchange -> destination transfer, so its fee is paid too
+    if (destination && destination.chain !== exchange.chain) {
+      const toDestOriginFee = await getFromExchangeOriginFee(
+        { exchange, destination, amount: amountOut, sender, api },
+        false,
+      );
+      toDestFee = toDestOriginFee.fee ?? 0n;
+    }
   }
 
-  const transferable = balance - existentialDeposit - swapFee;
+  const transferable = balance - existentialDeposit - swapFee - toDestFee;
   return transferable > 0n ? transferable : 0n;
 };
 

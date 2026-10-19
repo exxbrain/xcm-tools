@@ -189,13 +189,17 @@ describe('getRouterFees', () => {
       expect(result.destination).toEqual({ ...swapFee, isExchange: true });
     });
 
-    it('adds exchange to hops only when destination exists but origin undefined', async () => {
+    it('includes exchange -> destination origin fee in origin when destination exists but origin undefined', async () => {
       options.destination = { chain: 'Darwinia', min: 0n } as unknown as TDestinationInfo;
 
       const result = await getRouterFees(dex, options, false);
 
       expect(result.hops).toEqual([...toDestFeeValue.hops]);
-      expect(result.origin).toEqual({ ...swapFee, isExchange: true });
+      expect(result.origin).toEqual({
+        ...swapFee,
+        fee: 1254n, // swap fee (1234n) + exchange -> destination origin fee (20n)
+        isExchange: true,
+      });
       expect(result.destination).toEqual(toDestFeeValue.destination);
     });
 

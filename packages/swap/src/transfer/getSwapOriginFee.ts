@@ -5,6 +5,7 @@ import type { TBuildTransactionsOptions, TTransformedOptions } from '../types';
 import { getSwapFee } from './fees';
 import {
   canUseExecuteTransfer,
+  getFromExchangeOriginFee,
   getSwapExecuteOriginXcmFee,
   getToExchangeOriginFee,
   isFilteredError,
@@ -28,7 +29,7 @@ export const getSwapOriginFee = async <
   >,
   disableFallback: TDisableFallback,
 ): Promise<TXcmFeeDetailWithForwardedXcm<TDisableFallback>> => {
-  const { origin, exchange } = options;
+  const { api, origin, exchange, destination, sender } = options;
 
   if (canUseExecuteTransfer(dex, options)) {
     try {
@@ -47,6 +48,20 @@ export const getSwapOriginFee = async <
   }
 
   // Origin chain is the exchange itself — fee is the swap fee
-  const { result } = await getSwapFee(dex, options, disableFallback);
-  return result as TXcmFeeDetailWithForwardedXcm<TDisableFallback>;
+  const { result, amountOut } = await getSwapFee(dex, options, disableFallback);
+
+  if (!destination || destination.chain === exchange.chain || result.fee === undefined) {
+    return result as TXcmFeeDetailWithForwardedXcm<TDisableFallback>;
+  }
+
+  // The swap is batched with the exchange -> destination transfer, so the origin pays both fees
+  const toDestOriginFee = await getFromExchangeOriginFee(
+    { exchange, destination, amount: amountOut, sender, api },
+    disableFallback,
+  );
+
+  return {
+    ...result,
+    fee: result.fee + (toDestOriginFee.fee ?? 0n),
+  } as TXcmFeeDetailWithForwardedXcm<TDisableFallback>;
 };

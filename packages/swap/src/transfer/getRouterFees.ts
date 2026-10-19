@@ -95,8 +95,11 @@ export const getRouterFees = async <
     ...(receivingChain?.hops ?? []),
   ];
 
+  // When the swap starts on the exchange, the origin tx batches the swap with the
+  // exchange -> destination transfer, so the origin also pays the outgoing transfer fee
   const finalOrigin = sendingChain?.origin ?? {
     ...swapChain,
+    fee: swapChain.fee + (receivingChain?.origin.fee ?? 0n),
     ...(!origin && { isExchange: true }),
   };
 

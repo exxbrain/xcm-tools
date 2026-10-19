@@ -17,12 +17,13 @@ import type {
 } from '../types';
 import { getSwapFee } from './fees';
 import { getSwapOriginFee } from './getSwapOriginFee';
-import { getToExchangeOriginFee } from './utils';
+import { getFromExchangeOriginFee, getToExchangeOriginFee } from './utils';
 
 vi.mock('./fees');
 vi.mock('./utils', async (importActual) => ({
   ...(await importActual()),
   getToExchangeOriginFee: vi.fn(),
+  getFromExchangeOriginFee: vi.fn(),
 }));
 
 vi.mock('@paraspell/sdk-core', async (importActual) => ({
@@ -53,6 +54,11 @@ describe('getSwapOriginFee', () => {
     fee: 10n,
     feeType: 'dryRun',
     asset: { symbol: 'BAR' },
+  } as TXcmFeeDetailWithForwardedXcm<false>;
+  const fromExchangeOriginValue = {
+    fee: 20n,
+    feeType: 'dryRun',
+    asset: { symbol: 'FOO' },
   } as TXcmFeeDetailWithForwardedXcm<false>;
   const executeOriginValue = {
     fee: 100n,
@@ -91,6 +97,7 @@ describe('getSwapOriginFee', () => {
       amountOut: swapAmountOut,
     });
     vi.mocked(getToExchangeOriginFee).mockResolvedValue(toExchangeOriginValue);
+    vi.mocked(getFromExchangeOriginFee).mockResolvedValue(fromExchangeOriginValue);
     vi.mocked(getOriginXcmFee).mockResolvedValue(executeOriginValue);
   });
 
@@ -206,6 +213,33 @@ describe('getSwapOriginFee', () => {
 
       expect(getSwapFee).toHaveBeenCalledWith(dex, options, false);
       expect(getToExchangeOriginFee).not.toHaveBeenCalled();
+      expect(result).toEqual(swapFee);
+    });
+
+    it('adds exchange -> destination origin fee when swap starts on exchange and destination differs', async () => {
+      options.destination = { chain: 'Darwinia', address: 'dest' } as unknown as TDestinationInfo;
+
+      const result = await getSwapOriginFee(dex, options, false);
+
+      expect(getFromExchangeOriginFee).toHaveBeenCalledWith(
+        {
+          exchange: options.exchange,
+          destination: options.destination,
+          amount: swapAmountOut,
+          sender: options.sender,
+          api: options.api,
+        },
+        false,
+      );
+      expect(result).toEqual({ ...swapFee, fee: swapFee.fee + fromExchangeOriginValue.fee });
+    });
+
+    it('does not add exchange -> destination fee when destination equals exchange chain', async () => {
+      options.destination = { chain: exchangeChain } as unknown as TDestinationInfo;
+
+      const result = await getSwapOriginFee(dex, options, false);
+
+      expect(getFromExchangeOriginFee).not.toHaveBeenCalled();
       expect(result).toEqual(swapFee);
     });
 

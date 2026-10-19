@@ -9,6 +9,7 @@ import type { TBuildTransactionsOptions } from '../types';
 import type {
   TAdditionalTransferOptions,
   TBuildTransactionsBaseOptions,
+  TDestinationInfo,
   TExchangeInfo,
   TOriginInfo,
   TTransformedOptions,
@@ -17,6 +18,7 @@ import { getSwapFee } from './fees';
 import { getTransferableAmount } from './getTransferableAmount';
 import {
   createToExchangeBuilder,
+  getFromExchangeOriginFee,
   prepareTransformedOptions,
   validateTransferOptions,
 } from './utils';
@@ -206,6 +208,51 @@ describe('getTransferableAmount', () => {
     });
     expect(getExistentialDeposit).toHaveBeenCalledWith('Hydration', expect.anything());
     expect(getSwapFee).toHaveBeenCalledTimes(1);
+  });
+
+  it('also subtracts exchange -> destination fee when transferring to another chain', async () => {
+    const destination = { chain: 'Acala', address: 'dest' } as TDestinationInfo;
+    const options = createTransformedOptions({
+      origin: undefined,
+      destination,
+      exchange: createExchangeInfo('HDX'),
+    });
+    vi.mocked(prepareTransformedOptions).mockResolvedValue({
+      dex: createExchangeChainStub(),
+      options,
+    });
+
+    vi.mocked(getBalance).mockResolvedValue(2000n);
+    vi.mocked(getExistentialDeposit).mockReturnValue(100n);
+    vi.mocked(getNativeAssetSymbol).mockReturnValue('HDX');
+    const swapDetail: TXcmFeeDetail = {
+      fee: 300n,
+      feeType: 'dryRun',
+      asset: { ...sdkAsset, symbol: 'HDX' },
+    };
+    vi.mocked(getSwapFee).mockResolvedValue({ result: swapDetail, amountOut: 500n });
+    vi.mocked(getFromExchangeOriginFee).mockResolvedValue({
+      fee: 50n,
+      feeType: 'dryRun',
+      asset: { ...sdkAsset, symbol: 'HDX' },
+    });
+
+    const result = await getTransferableAmount({
+      ...createOptions({ from: undefined }),
+      api: mockApi,
+    });
+
+    expect(result).toBe(1550n);
+    expect(getFromExchangeOriginFee).toHaveBeenCalledWith(
+      {
+        exchange: options.exchange,
+        destination,
+        amount: 500n,
+        sender: 'sender',
+        api: options.api,
+      },
+      false,
+    );
   });
 
   it('does not subtract swap fee when the sent asset is not the native token', async () => {

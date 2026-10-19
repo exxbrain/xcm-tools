@@ -308,6 +308,38 @@ describe('getSwapInfo', () => {
       ]);
     });
 
+    it('includes exchange -> destination origin fee in exchange origin when only destination differs', async () => {
+      const receivingHop: THopTransferInfo = {
+        chain: 'AssetHubPolkadot',
+        result: { xcmFee: { fee: 3n, asset: usdtAsset }, asset: usdtAsset },
+      };
+      const receivingInfo = buildTransferInfo([receivingHop]);
+
+      vi.mocked(createFromExchangeBuilder).mockReturnValue(createBuilderMock(receivingInfo));
+
+      vi.mocked(prepareTransformedOptions).mockResolvedValue({
+        options: {
+          ...baseOptions,
+          destination: { chain: 'Darwinia', address: 'Carol' },
+        },
+        dex,
+      });
+
+      const result = await getSwapInfo(initialOptions);
+
+      expect(createToExchangeBuilder).not.toHaveBeenCalled();
+      expect(buildOriginInfo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          origin: 'Hydration',
+          originFee: swapFee.fee + receivingInfo.origin.xcmFee.fee,
+          originFeeAsset: swapFee.asset,
+        }),
+      );
+      expect(result.origin.isExchange).toBe(true);
+      expect(result.destination).toEqual(receivingInfo.destination);
+      expect(result.hops).toEqual([receivingHop]);
+    });
+
     it('skips sendingInfo when origin chain equals exchange chain', async () => {
       vi.mocked(prepareTransformedOptions).mockResolvedValue({
         options: {
