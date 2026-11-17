@@ -209,6 +209,59 @@ describe('swapUtils', () => {
       )
     })
 
+    it('should pass config with array apiOverrides', () => {
+      vi.mocked(guards.isConfig).mockReturnValue(true)
+
+      const config = {
+        apiOverrides: {
+          Acala: ['wss://acala-1.example.com', 'wss://acala-2.example.com'],
+          Hydration: 'wss://hydration.example.com'
+        }
+      }
+
+      expect(convertBuilderConfig(config)).toEqual(config)
+    })
+
+    it('should not throw on undefined apiOverrides entries', () => {
+      vi.mocked(guards.isConfig).mockReturnValue(true)
+
+      const config = {
+        apiOverrides: { Acala: undefined, Hydration: 'wss://hydration.example.com' }
+      }
+
+      expect(() => convertBuilderConfig(config)).not.toThrow()
+
+      const result = convertBuilderConfig(config)
+
+      expect(result?.apiOverrides?.Acala).toBeUndefined()
+      expect(result?.apiOverrides?.Hydration).toBe('wss://hydration.example.com')
+    })
+
+    it('should throw when an API client override is mixed with array apiOverrides', () => {
+      vi.mocked(guards.isConfig).mockReturnValue(true)
+
+      const config = {
+        apiOverrides: { Acala: ['wss://acala.example.com'], Hydration: { someClient: true } }
+      }
+
+      expect(() => convertBuilderConfig(config)).toThrow(
+        'Swap module does not support API client override with non-string values'
+      )
+    })
+
+    it('should throw when an apiOverrides list contains an API client', () => {
+      vi.mocked(guards.isConfig).mockReturnValue(true)
+
+      const config = {
+        apiOverrides: { Acala: [{ someClient: true }] }
+      }
+
+      expect(() => convertBuilderConfig(config)).toThrow(UnsupportedOperationError)
+      expect(() => convertBuilderConfig(config)).toThrow(
+        'Swap module does not support API client override with non-string values'
+      )
+    })
+
     it('should throw when apiOverrides contain non-string object values', () => {
       vi.mocked(guards.isConfig).mockReturnValue(true)
 
@@ -245,6 +298,17 @@ describe('swapUtils', () => {
       expect(
         convertBuilderConfig(['wss://rpc.polkadot.io', 'wss://polkadot-rpc.dwellir.com'])
       ).toBeUndefined()
+    })
+
+    it('should throw when config is a list containing an API client', () => {
+      vi.mocked(guards.isConfig).mockReturnValue(false)
+
+      const config = ['wss://rpc.polkadot.io', { someClient: true }]
+
+      expect(() => convertBuilderConfig(config)).toThrow(UnsupportedOperationError)
+      expect(() => convertBuilderConfig(config)).toThrow(
+        'Swap module does not support API client override'
+      )
     })
 
     it('should throw when config is an API client', () => {

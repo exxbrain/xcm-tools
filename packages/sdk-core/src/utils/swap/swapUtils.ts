@@ -1,3 +1,5 @@
+import type { TChain } from '@paraspell/sdk-common'
+
 import { DEFAULT_SWAP_SLIPPAGE, EXCHANGE_CHAINS } from '../../constants'
 import { UnsupportedOperationError } from '../../errors'
 import { getSwapExtensionOrThrow } from '../../extensions'
@@ -15,7 +17,13 @@ import { assertAddressIsString, assertSender, assertToIsString } from '../assert
 import { isConfig } from '../guards'
 
 const isUrl = (value: unknown): value is string | string[] =>
-  typeof value === 'string' || Array.isArray(value)
+  typeof value === 'string' ||
+  (Array.isArray(value) && value.every(item => typeof item === 'string'))
+
+const isUrlOverrides = (
+  apiOverrides: Partial<Record<TChain, unknown>>
+): apiOverrides is Partial<Record<TChain, TUrl>> =>
+  Object.values(apiOverrides).every(value => value === undefined || isUrl(value))
 
 /**
  * Checks if a given chain is a supported exchange chain.
@@ -38,22 +46,15 @@ export const convertBuilderConfig = <TApi>(
       return rest
     }
 
-    if (
-      config.apiOverrides &&
-      Object.values(config.apiOverrides).some(url => typeof url === 'object')
-    ) {
+    if (!isUrlOverrides(apiOverrides)) {
       throw new UnsupportedOperationError(
         'Swap module does not support API client override with non-string values'
       )
     }
 
-    const filteredApiOverrides = Object.fromEntries(
-      Object.entries(apiOverrides).filter(([, value]) => isUrl(value))
-    )
-
     return {
       ...config,
-      apiOverrides: filteredApiOverrides
+      apiOverrides
     }
   }
 
