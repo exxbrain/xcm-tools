@@ -3,6 +3,7 @@ import { isAssetEqual, isSymbolMatch, normalizeSymbol } from '@paraspell/assets'
 import { isExternalChain, isSubstrateBridge } from '@paraspell/sdk-common'
 
 import { getAssetBalanceInternal } from '../../balance'
+import { TX_CLIENT_TIMEOUT_MS } from '../../constants'
 import { DryRunFailedError, ScenarioNotSupportedError, UnableToComputeError } from '../../errors'
 import type { TGetXcmFeeResult, TVerifyEdOnDestinationOptions } from '../../types'
 import { abstractDecimals, validateAddress } from '../../utils'
@@ -36,6 +37,7 @@ export const verifyEdOnDestinationInternal = async <
 
   if (isExternalChain(destination)) return true
 
+  await api.init(origin, TX_CLIENT_TIMEOUT_MS, destination)
   validateAddress(api, recipient, destination, true)
 
   const isSubBridge = isSubstrateBridge(origin, destination)

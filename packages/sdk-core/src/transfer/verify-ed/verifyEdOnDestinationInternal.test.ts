@@ -22,6 +22,7 @@ vi.mock('../utils')
 
 describe('verifyEdOnDestinationInternal', () => {
   const mockApi = {
+    init: vi.fn().mockResolvedValue(undefined),
     getMethod: vi.fn(),
     clone: () => ({
       init: vi.fn()

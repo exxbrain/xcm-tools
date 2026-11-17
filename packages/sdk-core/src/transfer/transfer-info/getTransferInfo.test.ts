@@ -30,6 +30,8 @@ vi.mock('./buildDestInfo')
 vi.mock('./buildHopInfo')
 
 const mkApiSpies = (api: PolkadotApi<unknown, unknown, unknown>) => ({
+  init: vi.spyOn(api, 'init'),
+  disconnect: vi.spyOn(api, 'disconnect'),
   findAssetInfoOrThrow: vi.spyOn(api, 'findAssetInfoOrThrow'),
   isChainEvm: vi.spyOn(api, 'isChainEvm'),
   getRelayChainSymbol: vi.spyOn(api, 'getRelayChainSymbol')
@@ -148,7 +150,7 @@ describe('getTransferInfo', () => {
 
     const result = await getTransferInfo(options)
 
-    expect(initSpy).toHaveBeenCalledWith(options.origin)
+    expect(initSpy).toHaveBeenCalledWith(options.origin, undefined, options.destination)
     expect(disconnectAllowedSpy).toHaveBeenCalledWith(false)
     expect(resolveCurrency).toHaveBeenCalledWith(
       mockApi,
@@ -281,6 +283,51 @@ describe('getTransferInfo', () => {
 
     await expect(getTransferInfo(options)).rejects.toThrow(MissingParameterError)
     expect(initSpy).not.toHaveBeenCalled()
+  })
+
+  it('hydrates a custom origin before EVM detection and fee asset resolution', async () => {
+    let hydrated = false
+    apiSpies.init.mockImplementation(async () => {
+      await Promise.resolve()
+      hydrated = true
+    })
+    apiSpies.isChainEvm.mockImplementation(() => {
+      if (!hydrated) throw new Error('Custom chain is not hydrated')
+      return false
+    })
+    vi.mocked(resolveFeeAsset).mockImplementation((_api, feeAsset) => {
+      if (!hydrated) throw new Error('Custom chain is not hydrated')
+      return feeAsset as TAssetInfo
+    })
+
+    const api = mockApi as unknown as PolkadotApi<unknown, unknown, unknown, 'MyCustom'>
+    await expect(
+      getTransferInfo({ ...baseOptions, api, origin: 'MyCustom' as typeof baseOptions.origin })
+    ).resolves.toMatchObject({ chain: { origin: 'MyCustom' } })
+  })
+
+  it('disconnects after rejecting a hydrated custom EVM origin without ahAddress', async () => {
+    let hydrated = false
+    apiSpies.init.mockImplementation(async () => {
+      await Promise.resolve()
+      hydrated = true
+    })
+    apiSpies.isChainEvm.mockImplementation(() => {
+      if (!hydrated) throw new Error('Custom chain is not hydrated')
+      return true
+    })
+
+    const api = mockApi as unknown as PolkadotApi<unknown, unknown, unknown, 'MyCustom'>
+    await expect(
+      getTransferInfo({
+        ...baseOptions,
+        api,
+        origin: 'MyCustom' as typeof baseOptions.origin,
+        ahAddress: undefined
+      })
+    ).rejects.toThrow(MissingParameterError)
+    expect(apiSpies.disconnect).toHaveBeenCalledOnce()
+    expect(mockApi.disconnectAllowed).toBe(true)
   })
 
   it('should use getAssetBalanceInternal for fee balance if feeAsset is not provided', async () => {
@@ -523,7 +570,7 @@ describe('getTransferInfo', () => {
 
     await getTransferInfo(options)
 
-    expect(initSpy).toHaveBeenCalledWith(options.origin)
+    expect(initSpy).toHaveBeenCalledWith(options.origin, undefined, options.destination)
     expect(buildHopInfo).toHaveBeenCalledWith(
       expect.objectContaining({ ahAddress: 'evmAhAddress' })
     )

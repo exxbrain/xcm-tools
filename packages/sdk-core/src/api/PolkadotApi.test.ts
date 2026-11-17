@@ -763,6 +763,39 @@ describe('PolkadotApi', () => {
       expect(cloneSpy).toHaveBeenCalledOnce()
       expect(instance._customCtx.customChainAssets?.MyCustom).toBeDefined()
     })
+
+    it('hydrates a new custom destination when the origin is already initialized', async () => {
+      const client = {}
+      vi.mocked(resolveChainApi).mockResolvedValue(client)
+      const instance = buildParent()
+      const child = buildChild()
+      const cloneSpy = vi.spyOn(instance, 'clone').mockReturnValue(child)
+      const disconnectSpy = vi.spyOn(instance, 'disconnect')
+
+      await instance.init('Acala', 12_345)
+      await instance.init('Acala', undefined, 'MyCustom' as TDestination)
+
+      expect(instance.api).toBe(client)
+      expect(instance._chain).toBe('Acala')
+      expect(instance._ttlMs).toBe(12_345)
+      expect(child._ttlMs).toBe(12_345)
+      expect(disconnectSpy).not.toHaveBeenCalled()
+      expect(cloneSpy).toHaveBeenCalledOnce()
+      expect(instance._customCtx.customChainAssets?.MyCustom?.nativeAssetSymbol).toBe('CUS')
+    })
+
+    it('reuses the hydrated destination on repeated init calls for the same origin', async () => {
+      vi.mocked(resolveChainApi).mockResolvedValue({})
+      const instance = buildParent()
+      const cloneSpy = vi.spyOn(instance, 'clone').mockReturnValue(buildChild())
+
+      await instance.init('Acala')
+      await instance.init('Acala', undefined, 'MyCustom' as TDestination)
+      await instance.init('Acala', undefined, 'MyCustom' as TDestination)
+
+      expect(cloneSpy).toHaveBeenCalledOnce()
+      expect(instance._customCtx.customChainAssets?.MyCustom).toBeDefined()
+    })
   })
 
   describe('setCustomCtx', () => {

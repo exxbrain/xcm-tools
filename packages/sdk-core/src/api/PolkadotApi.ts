@@ -257,7 +257,12 @@ export abstract class PolkadotApi<TApi, TRes, TSigner, TCustomChain extends stri
     clientTtlMs: number = DEFAULT_TTL_MS,
     destination?: TDestination
   ): Promise<void> {
-    if (this._chain === chain || isExternalChain(chain)) {
+    if (isExternalChain(chain)) {
+      return
+    }
+
+    if (this._chain === chain) {
+      await this.hydrateCustomChain(destination)
       return
     }
 
@@ -276,10 +281,7 @@ export abstract class PolkadotApi<TApi, TRes, TSigner, TCustomChain extends stri
     )
 
     await this.maybeHydrateCustomChain(chain)
-
-    if (typeof destination === 'string' && isCustomChain(destination)) {
-      await this.hydrateCustomChain(destination)
-    }
+    await this.hydrateCustomChain(destination)
   }
 
   setCustomCtx(ctx: TFullCustomCtx): void {
@@ -290,8 +292,13 @@ export abstract class PolkadotApi<TApi, TRes, TSigner, TCustomChain extends stri
     this._chain = undefined
   }
 
-  private async hydrateCustomChain(chain: TChain | TCustomChain): Promise<void> {
-    if (!this._customCtx.customChains?.[chain] || this._customCtx.customChainAssets?.[chain]) {
+  private async hydrateCustomChain(chain?: TDestination | TCustomChain): Promise<void> {
+    if (
+      typeof chain !== 'string' ||
+      !isCustomChain(chain) ||
+      !this._customCtx.customChains?.[chain] ||
+      this._customCtx.customChainAssets?.[chain]
+    ) {
       return
     }
 

@@ -19,6 +19,7 @@ vi.mock('../utils')
 
 describe('getTransferableAmount', () => {
   const mockApi = {
+    init: vi.fn().mockResolvedValue(undefined),
     setDisconnectAllowed: vi.fn(),
     disconnect: vi.fn().mockResolvedValue(undefined),
     findAssetInfoOrThrow: vi.fn(),

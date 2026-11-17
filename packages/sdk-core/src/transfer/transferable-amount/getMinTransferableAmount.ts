@@ -1,6 +1,7 @@
 import type { TCurrencyInputWithAmount, TSingleCurrencyInputWithAmount } from '@paraspell/assets'
 
 import { getAssetBalanceInternal } from '../../balance'
+import { TX_CLIENT_TIMEOUT_MS } from '../../constants'
 import { AmountTooLowError } from '../../errors'
 import type { TGetMinTransferableAmountOptions, TPerAssetResult } from '../../types'
 import { padValueBy, validateAddress } from '../../utils'
@@ -32,6 +33,7 @@ export const getMinTransferableAmountInternal = async <
 }: TGetMinTransferableAmountOptions<TApi, TRes, TSigner, TCustomChain, TCurrency>): Promise<
   TPerAssetResult<TCurrency, bigint>
 > => {
+  await api.init(origin, TX_CLIENT_TIMEOUT_MS, destination)
   validateAddress(api, sender, origin, false)
 
   const resolvedFeeAsset = feeAsset

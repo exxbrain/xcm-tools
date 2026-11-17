@@ -34,6 +34,7 @@ describe('getMinTransferableAmountInternal', () => {
 
   const destApi = { init: vi.fn() } as unknown as PolkadotApi<unknown, unknown, unknown>
   const api = {
+    init: vi.fn().mockResolvedValue(undefined),
     clone: vi.fn(() => destApi),
     setDisconnectAllowed: vi.fn(),
     disconnect: vi.fn(),
@@ -372,6 +373,7 @@ describe('getMinTransferableAmount', () => {
     const disconnectAllowedValues: boolean[] = []
     const destApi = { init: vi.fn() } as unknown as PolkadotApi<unknown, unknown, unknown>
     const mockApi = {
+      init: vi.fn().mockResolvedValue(undefined),
       get disconnectAllowed() {
         return disconnectAllowedValues[disconnectAllowedValues.length - 1] ?? true
       },
