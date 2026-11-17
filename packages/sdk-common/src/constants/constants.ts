@@ -1,3 +1,5 @@
+import type { TExternalChain } from '../types'
+
 /**
  * Supported Polkadot / Kusama / Westend / Paseo parachains.
  */
@@ -66,6 +68,14 @@ export const SUBSTRATE_CHAINS = [...PARACHAINS, ...RELAYCHAINS] as const
  * External chains (non-Substrate/Polkadot ecosystem chains).
  */
 export const EXTERNAL_CHAINS = ['Ethereum', 'EthereumTestnet'] as const
+
+/**
+ * Ethereum chain IDs of the external chains.
+ */
+export const ETHEREUM_CHAIN_IDS: Record<TExternalChain, number> = {
+  Ethereum: 1,
+  EthereumTestnet: 11155111
+}
 
 /**
  * Default SS58 address prefix.

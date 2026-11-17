@@ -1,5 +1,5 @@
 import type { TSubstrateChain } from '@paraspell/sdk-common'
-import { Parents, type TLocation } from '@paraspell/sdk-common'
+import { ETHEREUM_CHAIN_IDS, Parents, type TLocation } from '@paraspell/sdk-common'
 
 import type { TWeight } from '../types'
 
@@ -7,10 +7,10 @@ export const MIN_FEE = 1000n
 
 export const DEFAULT_FEE_ASSET = 0
 
-export const ETH_MAINNET_PARA_ID = 1
+export const ETH_MAINNET_PARA_ID = ETHEREUM_CHAIN_IDS.Ethereum
 export const ETH_MAINNET_CHAIN_ID = BigInt(ETH_MAINNET_PARA_ID)
 
-export const ETH_TESTNET_PARA_ID = 11155111
+export const ETH_TESTNET_PARA_ID = ETHEREUM_CHAIN_IDS.EthereumTestnet
 export const ETH_TESTNET_CHAIN_ID = BigInt(ETH_TESTNET_PARA_ID)
 
 export const DEFAULT_FEE = 'Unlimited'

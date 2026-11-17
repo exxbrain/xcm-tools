@@ -3,6 +3,7 @@
 import type { TLocation } from '@paraspell/sdk-common'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { DuplicateAssetError } from '../../errors'
 import type { TAssetInfo } from '../../types'
 import { getNativeAssetsImpl, getOtherAssetsImpl } from '../assets'
 import { Foreign, ForeignAbstract, Native } from '../assetSelectors'
@@ -361,6 +362,53 @@ describe('findAssetInfo', () => {
     const asset = findAssetInfo('AssetHubPolkadot', { symbol: 'WETH' }, 'Ethereum')
     expect(asset).toHaveProperty('symbol')
     expect(asset).toHaveProperty('assetId')
+  })
+
+  it('should prefer the Ethereum asset over a same-symbol asset when destination is Ethereum', () => {
+    const polkadotWethAsset: TAssetInfo = {
+      ...wethAsset,
+      assetId: '5',
+      location: glmrAsset.location
+    }
+    vi.mocked(getOtherAssetsImpl).mockReturnValue([polkadotWethAsset, wethAsset])
+    expect(findAssetInfo('Hydration', { symbol: 'WETH' }, 'Ethereum')).toBe(wethAsset)
+  })
+
+  it('should find a non-Ethereum asset by symbol when destination is Ethereum', () => {
+    vi.mocked(getOtherAssetsImpl).mockReturnValue([dotAsset, wethAsset])
+    expect(findAssetInfo('Hydration', { symbol: 'DOT' }, 'Ethereum')).toBe(dotAsset)
+    expect(findAssetInfo('Hydration', { symbol: Foreign('DOT') }, 'Ethereum')).toBe(dotAsset)
+  })
+
+  it('should throw DuplicateAssetError for an ambiguous non-Ethereum symbol when destination is Ethereum', () => {
+    vi.mocked(getOtherAssetsImpl).mockReturnValue([dotAsset, wethAsset])
+    vi.mocked(getNativeAssetsImpl).mockReturnValue([{ ...dotAsset, isNative: true }])
+    expect(() => findAssetInfo('AssetHubPolkadot', { symbol: 'DOT' })).toThrow(DuplicateAssetError)
+    expect(() => findAssetInfo('AssetHubPolkadot', { symbol: 'DOT' }, 'Ethereum')).toThrow(
+      DuplicateAssetError
+    )
+  })
+
+  it('should find a native asset by symbol when destination is Ethereum', () => {
+    const mythAsset: TAssetInfo = { ...glmrAsset, symbol: 'MYTH', isNative: true }
+    vi.mocked(getNativeAssetsImpl).mockReturnValue([mythAsset])
+    expect(findAssetInfo('Mythos', { symbol: 'MYTH' }, 'Ethereum')).toBe(mythAsset)
+  })
+
+  it('should find Ethereum assets of the destination network', () => {
+    const sepoliaWethAsset: TAssetInfo = {
+      ...wethAsset,
+      assetId: '6',
+      location: {
+        parents: 2,
+        interior: { X1: [{ GlobalConsensus: { Ethereum: { chainId: 11155111 } } }] }
+      }
+    }
+    vi.mocked(getOtherAssetsImpl).mockReturnValue([wethAsset, sepoliaWethAsset])
+    expect(findAssetInfo('AssetHubPaseo', { symbol: 'WETH' }, 'EthereumTestnet')).toBe(
+      sepoliaWethAsset
+    )
+    expect(findAssetInfo('AssetHubPolkadot', { symbol: 'WETH' }, 'Ethereum')).toBe(wethAsset)
   })
 
   it('should find native asset on Acala', () => {
